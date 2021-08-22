@@ -11,6 +11,25 @@ import warnings
 warnings.filterwarnings("ignore")
 ```
 
+# Decision trees 
+
+### Now these are cool 
+### The Decision trees are a bit of a different beast 
+### Unlike generalised linear models which often have a defined link and loss function , 
+### Decision trees are a recursevely optimized model through a criteria the most popular being gini index, although entropy is also popular 
+
+
+
+
+```python
+df= pd.read_csv('IRIS.csv')
+df.species[df.species == 'Iris-setosa'] = 0
+df.species[df.species == 'Iris-versicolor'] = 1
+df.species[df.species == 'Iris-virginica'] = 2
+df.to_numpy().T.sort(axis = 0)
+
+```
+
 #### Source of binary tree visualization implementation: <https://stackoverflow.com/questions/34012886/print-binary-tree-level-by-level-in-python>
 #### I had to edit Tree implementation as well as print algorithm to fit it with the purpose of the task
 
@@ -46,7 +65,15 @@ class Node:
         
     def set_right(self,right):
         self.right = right
-
+    
+    def is_leaf(self):
+        if (self.right == None and self.left == None):
+            
+            return True
+        
+        else:
+            return False
+        
     def display(self):
         lines, *_ = self._display_aux()
         for line in lines:
@@ -110,55 +137,54 @@ class Node:
 
 ```
 
-# Decision trees 
-
-### Now these are cool 
-### The Decision trees are a bit of a different beast 
-### Unlike generalised linear models which often have a defined link and loss function , 
-### Decision trees are a recursevely optimized model through a criteria the most popular being gini index, although entropy is also popular 
-
-
-
-
-```python
-iris = datasets.load_iris()
-X = iris.data[:, :2]  # we only take the first two features.
-y = iris.target
-df= pd.read_csv('IRIS.csv')
-df.species[df.species == 'Iris-setosa'] = 0
-df.species[df.species == 'Iris-versicolor'] = 1
-df.species[df.species == 'Iris-virginica'] = 2
-df.to_numpy().T.sort(axis = 0)
-
-```
-
 #### Create gini purity evaluation criteria
 
 
 ```python
-def gini(p,q):
-    return (1 -(p)**2 - q**2)
+def gini(p):
+    p_sum=np.sum(np.array(p)**2)
+    return (1 -p_sum)
 ```
 
 #### Calculate the gini purity for each branch split
+### $1-\sum p_{i}^{2}$
+### in english this gives you a score of how seggreagated the data is 
+### if you have a pure set this will yield zero, hence why the lower the better the split is
+
 
 
 ```python
 
 def split_score(y_low,y_high,target,j,split):
-    p_low = np.sum( np.where(y_low  == target,0,1) )/((np.sum( np.where(y_low  == target,0,1) )) + (np.sum( np.where(y_low  == target,1,0) ))  ) 
-    q_low = 1- p_low
-    p_high = np.sum( np.where(y_high  == target,0,1) ) / ((np.sum( np.where(y_high  == target,0,1) )) + (np.sum( np.where(y_high  == target,1,0) )))
-    q_high = 1 - p_high
-    g_low = gini(p_low,q_low)
-    g_high = gini(p_high,q_high)
-    score = (g_low*len(y_low) + g_high*len(y_high) )/ (len(y_high) + len(y_low) )                                                  
+
+    y_low_p=[]
+    y_high_p=[]
+    
+    for i in y_low.unique():
+        y_low_p.append(get_p(i,y_low))
+        
+    for i in y_high.unique():
+        y_high_p.append(get_p(i,y_high))
+    g_low = gini(y_low_p)
+    g_high = gini(y_high_p)
+    score = (g_low*len(y_low) + g_high*len(y_high) )/ (len(y_high) + len(y_low) ) 
+
     return score
 ```
 
 
 ```python
+def get_p(target,y):
+    val = np.sum(np.where(y  == target,1,0) ) 
+    length = len(y)
+    p = val   /   length
+    return p 
+```
+
+
+```python
 def get_split_score(i,j,target,df):
+        
         iteration = df[[j,target]]
         iteration = iteration.sort_values(by = j)
         # Using median as I want to use a value that is actually in the data, but could have used mean
@@ -168,10 +194,7 @@ def get_split_score(i,j,target,df):
         y_low = iteration_low[target]
         score = split_score(y_low,y_high,i,j,iteration[j].mean())
         test = np.round(iteration[j].mean(),3)
-        if(test==1.704 and score == 0):
-            iteration_high.to_csv('test1.csv')
-            iteration_low.to_csv('test.csv')
-            print('hi')
+
         
         return {score:{"y":i,"x":j,"split":iteration[j].mean()}}
 
@@ -189,8 +212,8 @@ def split_df(df,where):
     return df_high,df_low
 ```
 
-Most basic Descicion tree algorithm. 
-leafs are only created when gini impurity is zero for a split
+#### Most basic Descicion tree algorithm. 
+#### leafs are only created when gini impurity is zero for a split
 
 
 
@@ -239,7 +262,11 @@ def build_tree(df,target,root = None,max_depth=None,depth = 1):
     else:
         node.set_left(build_tree(df_low,target,node,depth = depth+1,max_depth=max_depth))
         node.set_right(build_tree(df_high,target,node,depth = depth+1,max_depth=max_depth))
-    
+
+    if(node.left.is_leaf() and node.right.is_leaf()):
+        if(node.left.y == node.right.y):
+            return Node(y = node.y)
+        
     return node
 
 
@@ -247,29 +274,19 @@ def build_tree(df,target,root = None,max_depth=None,depth = 1):
 
 ```
 
-#### For display simplicity we will display a tree with a depth of 3 
+#### For display simplicity we will display a tree with a depth of 4
 
 
 ```python
-tree=build_tree(df,'species',max_depth=3)
+tree=build_tree(df,'species',max_depth=4)
 tree.display()
 ```
 
-                         __________________petal_length >= 3.759 y = 0 ___________________                    
-                        /                                                                 \                  
-        _petal_length >= 1.704 y = 1 ___                                   _petal_width >= 1.723 y = 2 ___   
-       /                                \                                /                               \ 
-    y = 0                             y = 1                             y = 1                            y = 2 
+                         ___________________________________________________petal_length >= 3.759 y = 2 _____________________________________________________                    
+                        /                                                                                                                                    \                  
+        _petal_length >= 1.704 y = 1 ___________________                                                                     __________________petal_width >= 1.723 y = 2 ___   
+       /                                                \                                                                  /                                                \ 
+    y = 0                                 _petal_width >= 0.889 y = 1 ___                                   _petal_length >= 4.474 y = 2 ___                              y = 2 
+                                         /                               \                                /                                \                                  
+                                      y = 0                            y = 1                             y = 1                             y = 2                                  
     
-
-
-```python
-0.054580896686159834 == 0 
-```
-
-
-
-
-    False
-
-
